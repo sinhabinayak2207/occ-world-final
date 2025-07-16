@@ -23,7 +23,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   
   // List of master admin emails
-  const masterAdminEmails = ['sinha.vinayak2207@gmail.com','Trade@occworldtrade.com'];
+  const masterAdminEmails = ['sinha.vinayak2207@gmail.com','trade@occworldtrade.com','savanpar27@gmail.com'];
   
   // List of admin emails (includes master admins)
   const adminEmails = [...masterAdminEmails, 'admin@example.com'];

@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   
   // Check if user is admin or master admin - using case-insensitive comparison
   const adminEmails = ['admin@example.com'];
-  const masterAdminEmails = ['sinha.vinayak2207@gmail.com', 'trade@occworldtrade.com'];
+  const masterAdminEmails = ['sinha.vinayak2207@gmail.com', 'trade@occworldtrade.com','savanpar27@gmail.com'];
   const isAdmin = user?.email ? adminEmails.some(email => email.toLowerCase() === user.email?.toLowerCase()) : false;
   const isMasterAdmin = user?.email ? masterAdminEmails.some(email => email.toLowerCase() === user.email?.toLowerCase()) : false;
   
