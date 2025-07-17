@@ -170,7 +170,7 @@ export default function AboutPage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { value: '4+', label: 'Years Experience' },
+              { value: '5+', label: 'Years Experience' },
               { value: '10+', label: 'Happy Clients' },
               { value: '20+', label: 'Commodity Handling' },
               { value: '20+', label: 'Countries Served' },
