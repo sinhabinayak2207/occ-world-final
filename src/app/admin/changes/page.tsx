@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import AdminAuthWrapper from '@/components/admin/AdminAuthWrapper';
 import AddProductForm from '@/components/admin/AddProductForm';
+import EditProductForm from '@/components/admin/EditProductForm';
 import DeleteProductModal from '@/components/admin/DeleteProductModal';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -48,8 +49,10 @@ export default function ChangesPage() {
   const [error, setError] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<Record<string, { isUploading: boolean, error: string | null, success: boolean }>>({});
   const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [showEditProductModal, setShowEditProductModal] = useState(false);
   const [showDeleteProductModal, setShowDeleteProductModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [productToEdit, setProductToEdit] = useState<string | null>(null);
   
   // Track overall system status
   const [systemStatus, setSystemStatus] = useState<{
@@ -424,17 +427,32 @@ export default function ChangesPage() {
                       <p className="text-sm text-gray-300">{product.category}</p>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => {
-                      setProductToDelete(product.id);
-                      setShowDeleteProductModal(true);
-                    }}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                  </button>
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={() => {
+                        setProductToEdit(product.id);
+                        setShowEditProductModal(true);
+                      }}
+                      className="text-blue-500 hover:text-blue-700"
+                      title="Edit product"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setProductToDelete(product.id);
+                        setShowDeleteProductModal(true);
+                      }}
+                      className="text-red-500 hover:text-red-700"
+                      title="Delete product"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-0 justify-between">
@@ -589,17 +607,44 @@ export default function ChangesPage() {
 
       {/* Add Product Modal */}
       {showAddProductModal && (
-        <AddProductForm onClose={() => setShowAddProductModal(false)} />
+        <AddProductForm 
+          onClose={() => setShowAddProductModal(false)}
+          onProductAdded={(productId) => {
+            setShowAddProductModal(false);
+            logToSystem(`Product added successfully with ID: ${productId}`, 'success');
+          }}
+        />
       )}
-
+      
+      {/* Edit Product Modal */}
+      {showEditProductModal && productToEdit && (
+        <EditProductForm
+          productId={productToEdit}
+          onClose={() => {
+            setShowEditProductModal(false);
+            setProductToEdit(null);
+          }}
+          onProductUpdated={() => {
+            setShowEditProductModal(false);
+            setProductToEdit(null);
+            logToSystem('Product updated successfully', 'success');
+          }}
+        />
+      )}
+      
       {/* Delete Product Modal */}
-      {showDeleteProductModal && (
-        <DeleteProductModal 
-          productId={productToDelete} 
+      {showDeleteProductModal && productToDelete && (
+        <DeleteProductModal
+          productId={productToDelete}
           onClose={() => {
             setShowDeleteProductModal(false);
             setProductToDelete(null);
-          }} 
+          }}
+          onProductDeleted={() => {
+            setShowDeleteProductModal(false);
+            setProductToDelete(null);
+            logToSystem('Product deleted successfully', 'success');
+          }}
         />
       )}
     </MainLayout>

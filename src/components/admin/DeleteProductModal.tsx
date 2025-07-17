@@ -7,9 +7,10 @@ import { logToSystem } from '@/components/SystemLog';
 interface DeleteProductModalProps {
   productId: string | null;
   onClose: () => void;
+  onProductDeleted?: () => void;
 }
 
-export default function DeleteProductModal({ productId, onClose }: DeleteProductModalProps) {
+export default function DeleteProductModal({ productId, onClose, onProductDeleted }: DeleteProductModalProps) {
   const productContext = useProducts();
   const [isDeleting, setIsDeleting] = useState(false);
   
@@ -28,7 +29,13 @@ export default function DeleteProductModal({ productId, onClose }: DeleteProduct
       setIsDeleting(true);
       await removeProduct(productId);
       logToSystem(`Product ${product?.name || ''} deleted successfully`, 'success');
-      onClose();
+      
+      // Call onProductDeleted callback if provided
+      if (onProductDeleted) {
+        onProductDeleted();
+      } else {
+        onClose();
+      }
     } catch (error) {
       logToSystem(`Error deleting product: ${error instanceof Error ? error.message : String(error)}`, 'error');
     } finally {

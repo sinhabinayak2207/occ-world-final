@@ -118,6 +118,7 @@ interface ProductContextType {
   updateStockStatus: (productId: string, inStock: boolean) => Promise<void>;
   addProduct: (product: { name: string, description: string, price: number, imageUrl: string, category: string, unit: string, specifications?: Record<string, string> }) => Promise<string>;
   removeProduct: (productId: string) => Promise<void>;
+  updateProduct: (product: Product) => Promise<void>;
 }
 
 const ProductContext = createContext<ProductContextType | null>(null);
@@ -510,18 +511,80 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Update product
+  const updateProduct = async (product: Product): Promise<void> => {
+    try {
+      if (!auth.user) {
+        throw new Error('You must be logged in to update a product');
+      }
+      
+      if (!product.id) {
+        throw new Error('Product ID is required');
+      }
+      
+      // Import dynamically to avoid SSR issues
+      const { updateProduct: updateFirebaseProduct } = await import('@/lib/firebase-db');
+      
+      // Set the updatedBy field to the current user's email and ensure price is a number
+      const updatedProduct = {
+        ...product,
+        updatedBy: auth.user.email || 'unknown',
+        updatedAt: new Date(),
+        price: product.price || 0 // Ensure price is always a number, default to 0 if undefined
+      };
+      
+      // Update the product in Firebase
+      await updateFirebaseProduct(updatedProduct);
+      
+      // Update the local state
+      setProducts(prevProducts => {
+        return prevProducts.map(p => {
+          if (p.id === product.id) {
+            return updatedProduct;
+          }
+          return p;
+        });
+      });
+      
+      // Update localStorage
+      try {
+        const storedProducts = localStorage.getItem('products');
+        if (storedProducts) {
+          const parsedProducts = JSON.parse(storedProducts);
+          const updatedProducts = parsedProducts.map((p: Product) => {
+            if (p.id === product.id) {
+              return updatedProduct;
+            }
+            return p;
+          });
+          localStorage.setItem('products', JSON.stringify(updatedProducts));
+        }
+      } catch (e) {
+        console.error('Error updating localStorage:', e);
+      }
+      
+      console.log(`Product ${product.name} updated successfully`);
+    } catch (error) {
+      console.error('Error updating product:', error);
+      throw error;
+    }
+  };
+
   return (
-    <ProductContext.Provider value={{
-      products,
-      categories: productCategories,
-      featuredProducts,
-      loading,
-      updateProductImage,
-      updateFeaturedStatus,
-      updateStockStatus,
-      addProduct,
-      removeProduct
-    }}>
+    <ProductContext.Provider
+      value={{
+        products,
+        categories: productCategories,
+        featuredProducts,
+        loading,
+        updateProductImage,
+        updateFeaturedStatus,
+        updateStockStatus,
+        addProduct,
+        removeProduct,
+        updateProduct
+      }}
+    >
       {children}
     </ProductContext.Provider>
   );
@@ -529,7 +592,7 @@ export function ProductProvider({ children }: { children: React.ReactNode }) {
 
 export const useProducts = () => {
   const context = useContext(ProductContext);
-  if (context === undefined) {
+  if (context === null) {
     throw new Error('useProducts must be used within a ProductProvider');
   }
   return context;

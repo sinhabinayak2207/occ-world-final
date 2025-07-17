@@ -577,6 +577,67 @@ export const getAllCategories = async (): Promise<Category[]> => {
   }
 };
 
+/**
+ * Updates a product in the database
+ * @param product The updated product data
+ * @returns Promise that resolves when the update is complete
+ */
+export const updateProduct = async (product: Product): Promise<void> => {
+  try {
+    console.log(`Firebase DB: Updating product ${product.id}`);
+    
+    if (!product.id) {
+      throw new Error('Product ID is required');
+    }
+    
+    // Ensure we have a fresh Firestore connection
+    const db = getFirestore();
+    const productRef = doc(db, 'products', product.id);
+    
+    // Check if product exists
+    const productDoc = await getDoc(productRef);
+    if (!productDoc.exists()) {
+      throw new Error(`Product with ID ${product.id} not found`);
+    }
+    
+    // Prepare the update data with proper typing
+    const updateData: Record<string, any> = {
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      category: product.category,
+      unit: product.unit || 'kg',
+      slug: product.slug || product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+      featured: product.featured || false,
+      inStock: product.inStock !== undefined ? product.inStock : true,
+      updatedAt: Timestamp.now(),
+      updatedBy: product.updatedBy || 'system'
+    };
+    
+    // Add imageUrl if provided
+    if (product.imageUrl) {
+      updateData.imageUrl = product.imageUrl;
+    }
+    
+    // Add specifications if provided
+    if (product.specifications) {
+      updateData.specifications = product.specifications;
+    }
+    
+    // Add keyFeatures if provided
+    if (product.keyFeatures) {
+      updateData.keyFeatures = product.keyFeatures;
+    }
+    
+    // Update the product
+    await updateDoc(productRef, updateData);
+    console.log(`Firebase DB: Product ${product.id} updated successfully`);
+  } catch (error) {
+    console.error('Error updating product:', error);
+    throw error;
+  }
+};
+
 export { db };
 
 /**

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useProducts } from '@/context/ProductContext';
 import { logToSystem } from '@/components/SystemLog';
 import { useAuth } from '@/context/AuthContext';
 import { uploadImage } from '@/lib/cloudinary';
 import { Switch } from '@/components/ui/Switch';
+import { Product } from '@/context/ProductContext';
 
 interface Category {
   id: string;
@@ -22,12 +23,13 @@ const productCategories: Category[] = [
   { id: 'sugar', name: 'Sugar' },
 ];
 
-interface AddProductFormProps {
+interface EditProductFormProps {
   onClose: () => void;
-  onProductAdded?: (productId: string) => void;
+  productId: string;
+  onProductUpdated?: () => void;
 }
 
-export default function AddProductForm({ onClose, onProductAdded }: AddProductFormProps) {
+export default function EditProductForm({ onClose, productId, onProductUpdated }: EditProductFormProps) {
   const { user, isMasterAdmin } = useAuth();
   const productContext = useProducts();
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
@@ -35,47 +37,118 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [specifications, setSpecifications] = useState<{key: string, value: string}[]>([{key: '', value: ''}]);
   const [keyFeatures, setKeyFeatures] = useState<string[]>(['']);
-  const [newProductForm, setNewProductForm] = useState({
+  const [productForm, setProductForm] = useState({
     name: '',
     description: '',
     price: '',
-    unit: 'kg', // Default unit
+    unit: 'kg',
     category: 'rice',
     imageUrl: '',
     featured: false,
     inStock: true
   });
 
+  useEffect(() => {
+    // Load product data when component mounts
+    if (productContext && productId) {
+      const product = productContext.products.find(p => p.id === productId);
+      if (product) {
+        setProductForm({
+          name: product.name || '',
+          description: product.description || '',
+          price: product.price ? product.price.toString() : '',
+          unit: product.unit || 'kg',
+          category: product.category || 'rice',
+          imageUrl: product.imageUrl || '',
+          featured: product.featured || false,
+          inStock: product.inStock !== false // Default to true if undefined
+        });
+
+        // Load specifications if they exist
+        if (product.specifications) {
+          const specs = Object.entries(product.specifications).map(([key, value]) => ({
+            key,
+            value
+          }));
+          setSpecifications(specs.length > 0 ? specs : [{key: '', value: ''}]);
+          setShowAdvancedOptions(specs.length > 0);
+        }
+
+        // Load key features if they exist
+        if (product.keyFeatures && product.keyFeatures.length > 0) {
+          setKeyFeatures(product.keyFeatures);
+          setShowAdvancedOptions(true);
+        }
+      }
+    }
+  }, [productContext, productId]);
+
   if (!productContext) {
     return <div className="p-4 text-red-500">Error: Product context not available</div>;
   }
 
-  const { addProduct } = productContext;
-
   // Handle product form changes
   const handleProductFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setNewProductForm(prev => ({
+    setProductForm(prev => ({
       ...prev,
       [name]: name === 'price' ? value.replace(/[^0-9.]/g, '') : value
     }));
   };
 
-  // Handle product image upload for new product
+  // Handle product image upload
   const handleProductFormFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setProductImageFile(e.target.files[0]);
     }
   };
 
-  // Handle add product form submission
-  const handleAddProduct = async (e: React.FormEvent) => {
+  // Add a new specification field
+  const addSpecification = () => {
+    setSpecifications([...specifications, {key: '', value: ''}]);
+  };
+
+  // Remove a specification field
+  const removeSpecification = (index: number) => {
+    const newSpecs = [...specifications];
+    newSpecs.splice(index, 1);
+    setSpecifications(newSpecs.length > 0 ? newSpecs : [{key: '', value: ''}]);
+  };
+
+  // Update a specification field
+  const updateSpecification = (index: number, field: 'key' | 'value', value: string) => {
+    const newSpecs = [...specifications];
+    newSpecs[index][field] = value;
+    setSpecifications(newSpecs);
+  };
+
+  // Add a new key feature field
+  const addKeyFeature = () => {
+    setKeyFeatures([...keyFeatures, '']);
+  };
+
+  // Remove a key feature field
+  const removeKeyFeature = (index: number) => {
+    const newFeatures = [...keyFeatures];
+    newFeatures.splice(index, 1);
+    setKeyFeatures(newFeatures.length > 0 ? newFeatures : ['']);
+  };
+
+  // Update a key feature field
+  const updateKeyFeature = (index: number, value: string) => {
+    const newFeatures = [...keyFeatures];
+    newFeatures[index] = value;
+    setKeyFeatures(newFeatures);
+  };
+
+  // Handle update product form submission
+  const handleUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
       setIsSubmitting(true);
       
-      if (!newProductForm.name || !newProductForm.description || !newProductForm.price || !newProductForm.category) {
+      if (!productForm.name || !productForm.description || !productForm.price || !productForm.category) {
         logToSystem('Please fill all required fields', 'error');
         return;
       }
@@ -97,22 +170,18 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
         }
       }
       
-      let imageUrl = newProductForm.imageUrl;
+      let imageUrl = productForm.imageUrl;
       
       // Upload image to Cloudinary if provided
       if (productImageFile) {
         try {
-          logToSystem(`Uploading image for product ${newProductForm.name}...`, 'info');
-          imageUrl = await uploadImage(productImageFile, 'products');
+          logToSystem(`Uploading image for product ${productForm.name}...`, 'info');
+          imageUrl = await uploadImage(productImageFile, `products/${productId}`);
           logToSystem(`Image uploaded successfully: ${imageUrl}`, 'success');
         } catch (error) {
           logToSystem(`Error uploading image: ${error instanceof Error ? error.message : String(error)}`, 'error');
-          // Continue with default image if upload fails
-          imageUrl = 'https://via.placeholder.com/300x300?text=Product+Image';
+          // Continue with existing image if upload fails
         }
-      } else {
-        // Set a default image if none provided
-        imageUrl = 'https://via.placeholder.com/300x300?text=Product+Image';
       }
       
       // Always initialize with empty objects/arrays to avoid undefined values
@@ -140,53 +209,54 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
         }
       }
       
-      // Log what's happening with the advanced fields
-      logToSystem(`Advanced toggle is ${showAdvancedOptions ? 'ON' : 'OFF'}`, 'info');
-      logToSystem(`Key Features count: ${productKeyFeatures.length}`, 'info');
-      logToSystem(`Specifications count: ${Object.keys(productSpecifications).length}`, 'info');
-      
-      // Create product object with the image URL, key features, and specifications
-      const newProduct = {
-        ...newProductForm,
-        imageUrl: imageUrl, // Use the uploaded image URL or default
-        price: parseFloat(newProductForm.price),
-        unit: newProductForm.unit,
-        createdAt: new Date(),
+      // Create updated product object
+      const updatedProduct = {
+        id: productId,
+        name: productForm.name,
+        description: productForm.description,
+        imageUrl: imageUrl,
+        price: parseFloat(productForm.price),
+        unit: productForm.unit,
+        category: productForm.category,
+        featured: productForm.featured,
+        inStock: productForm.inStock,
         updatedAt: new Date(),
         updatedBy: user?.email || 'admin',
         keyFeatures: productKeyFeatures,
-        specifications: productSpecifications
+        specifications: productSpecifications,
+        slug: productForm.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
       };
       
-      // Add product to database
-      // Explicitly pass the user email to ensure proper permissions
-      const productId = await addProduct(newProduct);
-      console.log(`Product added by user: ${user?.email || 'admin'}`);
-      logToSystem(`Product ${newProductForm.name} added with ID: ${productId}`, 'success');
+      // Update product in database
+      await productContext.updateProduct(updatedProduct);
       
-      // Reset form and close modal
-      setNewProductForm({
-        name: '',
-        description: '',
-        price: '',
-        unit: 'kg',
-        category: 'rice',
-        imageUrl: '',
-        featured: false,
-        inStock: true
-      });
-      setProductImageFile(null);
-      setSpecifications([{key: '', value: ''}]);
-      setKeyFeatures(['']);
+      setIsSubmitting(false);
+      logToSystem(`Product ${productId} updated successfully`, 'success');
       
-      // Call onProductAdded callback if provided
-      if (onProductAdded) {
-        onProductAdded(productId);
+      // Call onProductUpdated callback if provided
+      if (onProductUpdated) {
+        onProductUpdated();
       } else {
         onClose();
       }
+      
+      // Dispatch a custom event to notify other components
+      const eventData = { 
+        productId, 
+        timestamp: new Date().getTime()
+      };
+      
+      const event = new CustomEvent('productUpdated', { 
+        detail: eventData,
+        bubbles: true
+      });
+      
+      window.dispatchEvent(event);
+      document.dispatchEvent(event);
+      
+      onClose();
     } catch (error) {
-      logToSystem(`Error adding product: ${error instanceof Error ? error.message : String(error)}`, 'error');
+      logToSystem(`Error updating product: ${error instanceof Error ? error.message : String(error)}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -196,7 +266,7 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center border-b p-4">
-          <h2 className="text-xl font-bold text-gray-900">Add New Product</h2>
+          <h2 className="text-xl font-bold text-gray-900">Edit Product</h2>
           <button 
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
@@ -207,7 +277,7 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
           </button>
         </div>
         
-        <form onSubmit={handleAddProduct} className="p-6">
+        <form onSubmit={handleUpdateProduct} className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column - Image Upload */}
             <div className="space-y-4">
@@ -230,6 +300,15 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
                       </svg>
                     </button>
                   </div>
+                ) : productForm.imageUrl ? (
+                  <div className="relative w-full h-full">
+                    <Image 
+                      src={productForm.imageUrl} 
+                      alt="Product preview" 
+                      fill
+                      className="object-contain" 
+                    />
+                  </div>
                 ) : (
                   <div className="text-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -250,7 +329,7 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
                   htmlFor="product-image"
                   className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer"
                 >
-                  {productImageFile ? 'Change Image' : 'Select Image'}
+                  {productImageFile || productForm.imageUrl ? 'Change Image' : 'Select Image'}
                 </label>
               </div>
             </div>
@@ -263,7 +342,7 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
                   type="text" 
                   id="name" 
                   name="name" 
-                  value={newProductForm.name}
+                  value={productForm.name}
                   onChange={handleProductFormChange}
                   className="mt-1 block w-full border text-black border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   required
@@ -275,7 +354,7 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
                 <select 
                   id="category" 
                   name="category" 
-                  value={newProductForm.category}
+                  value={productForm.category}
                   onChange={handleProductFormChange}
                   className="mt-1 block w-full border text-black border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 >
@@ -296,7 +375,7 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
                       type="text" 
                       id="price" 
                       name="price" 
-                      value={newProductForm.price}
+                      value={productForm.price}
                       onChange={handleProductFormChange}
                       className="block w-full text-black pl-7 pr-12 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       placeholder="0.00"
@@ -310,7 +389,7 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
                     type="text"
                     id="unit"
                     name="unit"
-                    value={newProductForm.unit}
+                    value={productForm.unit}
                     onChange={handleProductFormChange}
                     className="mt-1 block w-full border text-black border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="e.g., kg, dozen, box, liter"
@@ -324,7 +403,7 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
                   id="description" 
                   name="description" 
                   rows={4} 
-                  value={newProductForm.description}
+                  value={productForm.description}
                   onChange={handleProductFormChange}
                   className="mt-1 block w-full border text-black border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   required
@@ -337,8 +416,8 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
                     id="featured" 
                     name="featured" 
                     type="checkbox" 
-                    checked={newProductForm.featured}
-                    onChange={(e) => setNewProductForm(prev => ({ ...prev, featured: e.target.checked }))}
+                    checked={productForm.featured}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, featured: e.target.checked }))}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label htmlFor="featured" className="ml-2 block text-sm text-gray-700">Featured Product</label>
@@ -349,135 +428,103 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
                     id="inStock" 
                     name="inStock" 
                     type="checkbox" 
-                    checked={newProductForm.inStock}
-                    onChange={(e) => setNewProductForm(prev => ({ ...prev, inStock: e.target.checked }))}
+                    checked={productForm.inStock}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, inStock: e.target.checked }))}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label htmlFor="inStock" className="ml-2 block text-sm text-gray-700">In Stock</label>
                 </div>
               </div>
               
-              {/* Master Admin Advanced Options Toggle - Only visible to master admins */}
               {isMasterAdmin && (
-                <div className="mt-4 border-t pt-4">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-sm font-medium text-gray-900">Advanced Product Details</h3>
+                <div className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium text-gray-900">Advanced Options</h3>
                     <Switch 
-                      id="advanced-options-toggle" 
+                      id="show-advanced-options"
                       checked={showAdvancedOptions} 
-                      onChange={setShowAdvancedOptions}
-                      label={showAdvancedOptions ? "Advanced Mode" : "Basic Mode"}
-                      description={showAdvancedOptions ? "Add detailed features and specifications" : "Standard product information"}
+                      onChange={setShowAdvancedOptions} 
+                      label="Show Advanced Options"
                     />
                   </div>
                   
                   {showAdvancedOptions && (
-                    <div className="space-y-6 bg-gray-50 p-3 rounded-md">
-                      {/* Key Features Section */}
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <h4 className="text-sm font-medium text-gray-700">Key Features</h4>
-                          <button
-                            type="button"
-                            onClick={() => setKeyFeatures([...keyFeatures, ''])}
-                            className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                          >
-                            Add Feature
-                          </button>
-                        </div>
-                        
+                    <div className="mt-4 space-y-6">
+                      {/* Key Features */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Key Features</label>
                         {keyFeatures.map((feature, index) => (
-                          <div key={`feature-${index}`} className="flex space-x-2">
-                            <div className="flex-1">
-                              <input
-                                type="text"
-                                placeholder="Feature Name"
-                                value={feature}
-                                onChange={(e) => {
-                                  const newFeatures = [...keyFeatures];
-                                  newFeatures[index] = e.target.value;
-                                  setKeyFeatures(newFeatures);
-                                }}
-                                className="w-full text-sm border text-black border-gray-300 rounded-md shadow-sm py-1 px-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                              />
-                            </div>
-                            {keyFeatures.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newFeatures = [...keyFeatures];
-                                  newFeatures.splice(index, 1);
-                                  setKeyFeatures(newFeatures);
-                                }}
-                                className="inline-flex items-center p-1 border border-transparent rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            )}
+                          <div key={`feature-${index}`} className="flex mb-2">
+                            <input
+                              type="text"
+                              value={feature}
+                              onChange={(e) => updateKeyFeature(index, e.target.value)}
+                              className="flex-1 border text-black border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Enter a key feature"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeKeyFeature(index)}
+                              className="ml-2 inline-flex items-center p-2 border border-transparent rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            </button>
                           </div>
                         ))}
+                        <button
+                          type="button"
+                          onClick={addKeyFeature}
+                          className="mt-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                          </svg>
+                          Add Feature
+                        </button>
                       </div>
                       
-                      {/* Specifications Section */}
-                      <div className="space-y-3 pt-3 border-t border-gray-200">
-                        <div className="flex justify-between items-center">
-                          <h4 className="text-sm font-medium text-gray-700">Product Specifications</h4>
-                          <button
-                            type="button"
-                            onClick={() => setSpecifications([...specifications, {key: '', value: ''}])}
-                            className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                          >
-                            Add Spec
-                          </button>
-                        </div>
-                        
+                      {/* Specifications */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
                         {specifications.map((spec, index) => (
-                          <div key={index} className="flex space-x-2">
-                            <div className="flex-1">
-                              <input
-                                type="text"
-                                placeholder="Specification Key"
-                                value={spec.key}
-                                onChange={(e) => {
-                                  const newSpecs = [...specifications];
-                                  newSpecs[index].key = e.target.value;
-                                  setSpecifications(newSpecs);
-                                }}
-                                className="w-full text-sm border text-black border-gray-300 rounded-md shadow-sm py-1 px-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <input
-                                type="text"
-                                placeholder="Specification Value"
-                                value={spec.value}
-                                onChange={(e) => {
-                                  const newSpecs = [...specifications];
-                                  newSpecs[index].value = e.target.value;
-                                  setSpecifications(newSpecs);
-                                }}
-                                className="w-full text-sm border text-black border-gray-300 rounded-md shadow-sm py-1 px-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                              />
-                            </div>
-                            {specifications.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newSpecs = [...specifications];
-                                  newSpecs.splice(index, 1);
-                                  setSpecifications(newSpecs);
-                                }}
-                                className="inline-flex items-center p-1 border border-transparent rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            )}
+                          <div key={`spec-${index}`} className="flex mb-2">
+                            <input
+                              type="text"
+                              value={spec.key}
+                              onChange={(e) => updateSpecification(index, 'key', e.target.value)}
+                              className="flex-1 border text-black border-gray-300 rounded-l-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Specification name"
+                            />
+                            <input
+                              type="text"
+                              value={spec.value}
+                              onChange={(e) => updateSpecification(index, 'value', e.target.value)}
+                              className="flex-1 border text-black border-gray-300 rounded-r-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Specification value"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeSpecification(index)}
+                              className="ml-2 inline-flex items-center p-2 border border-transparent rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            </button>
                           </div>
                         ))}
+                        <button
+                          type="button"
+                          onClick={addSpecification}
+                          className="mt-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                          </svg>
+                          Add Specification
+                        </button>
                       </div>
                     </div>
                   )}
@@ -486,20 +533,28 @@ export default function AddProductForm({ onClose, onProductAdded }: AddProductFo
             </div>
           </div>
           
-          <div className="mt-6 flex justify-end space-x-3">
-            <button 
-              type="button" 
+          <div className="mt-8 flex justify-end">
+            <button
+              type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="mr-3 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Cancel
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              {isSubmitting ? 'Adding...' : 'Add Product'}
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Updating...
+                </>
+              ) : 'Update Product'}
             </button>
           </div>
         </form>
