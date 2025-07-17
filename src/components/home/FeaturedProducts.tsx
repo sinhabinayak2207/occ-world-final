@@ -82,7 +82,7 @@ const FeaturedProducts = () => {
       </div>
       
       <div className="mt-12 text-center animate-fadeIn delay-300">
-        <Button href="/products" size="lg">
+        <Button href="/categories" size="lg">
           View All Products
         </Button>
       </div>
