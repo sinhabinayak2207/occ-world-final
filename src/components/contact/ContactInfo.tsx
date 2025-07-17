@@ -12,7 +12,7 @@ const ContactInfo = () => {
         </svg>
       ),
       title: 'Our Locations',
-      content: 'Ahmedabad Office: B-503, Ganesh Glory 11, Jagatpur Road\nCorp Office: Octopus SCM Expeditors Pvt. Ltd.'
+      content: 'OCC WORLD TRADE \n204, Meridian House, Sector 8,Gandhidham Kutch'
     },
     {
       icon: (
