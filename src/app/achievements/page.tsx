@@ -164,17 +164,17 @@ export default function AchievementsPage() {
           {[
             {
               quote: "B2B Showcase has been an invaluable partner in our supply chain. Their quality and reliability are unmatched.",
-              
-              position: "Procurement Manager, TechCorp"
+              author: "",
+              position: ""
             },
             {
               quote: "The team's expertise and commitment to excellence have helped us streamline our operations significantly.",
-              
-              position: "Operations Director, Global Industries"
+              author: "",
+              position: ""
             },
             {
               quote: "Their customer service is exceptional. They truly understand the needs of B2B clients.",
-              
+              author: "",
               position: "CEO, Enterprise Solutions"
             }
           ].map((testimonial, index) => (
