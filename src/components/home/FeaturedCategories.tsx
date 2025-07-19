@@ -7,32 +7,6 @@ import { useCategories } from '@/context/CategoryContext';
 import Link from 'next/link';
 
 // Fallback data in case context is not available
-const fallbackCategories = [
-  {
-    id: '1',
-    title: 'Rice',
-    slug: 'rice',
-    description: 'Premium quality rice varieties sourced from the finest farms worldwide.',
-    image: 'https://images.pexels.com/photos/4110251/pexels-photo-4110251.jpeg?auto=compress&cs=tinysrgb&w=600',
-    productCount: 8
-  },
-  {
-    id: '2',
-    title: 'Seeds',
-    slug: 'seeds',
-    description: 'High-yield agricultural seeds for various crops and growing conditions.',
-    image: 'https://images.pexels.com/photos/1537169/pexels-photo-1537169.jpeg?auto=compress&cs=tinysrgb&w=600',
-    productCount: 12
-  },
-  {
-    id: '3',
-    title: 'Oil',
-    slug: 'oil',
-    description: 'Refined and crude oils for industrial and commercial applications.',
-    image: 'https://images.pexels.com/photos/1458694/pexels-photo-1458694.jpeg?auto=compress&cs=tinysrgb&w=600',
-    productCount: 6
-  }
-];
 
 const FeaturedCategories = () => {
   const categoryContext = useCategories();
@@ -41,7 +15,8 @@ const FeaturedCategories = () => {
   // Use featured categories from context if available, otherwise use fallback
   const displayCategories = categoryContext?.featuredCategories?.length > 0 
     ? categoryContext.featuredCategories 
-    : fallbackCategories;
+    : [];
+
 
   // Listen for category updates
   useEffect(() => {
