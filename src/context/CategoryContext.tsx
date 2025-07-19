@@ -93,7 +93,7 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [featuredCategories, setFeaturedCategories] = useState<Category[]>([]);
   const productContext = useProducts();
 
-  // Initialize categories from hardcoded data but get imageUrl from Firebase
+  // Initialize categories from hardcoded data but get imageUrl and featured status from Firebase
   useEffect(() => {
     const initializeCategories = async () => {
       try {
@@ -103,30 +103,51 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           imageUrl: category.image // Default imageUrl to hardcoded image
         }));
         
-        // Try to get image URLs from Firebase
+        // Try to get categories data from Firebase
         try {
           const { getAllCategories } = await import('@/lib/firebase-db');
           const firebaseCategories = await getAllCategories();
           
           if (firebaseCategories && firebaseCategories.length > 0) {
-            console.log('Found Firebase categories, extracting imageUrls');
+            console.log('Found Firebase categories, extracting data');
             
-            // Create a map of Firebase category IDs to their imageUrls
+            // Create maps of Firebase category IDs to their data
             const firebaseImageMap: Record<string, string> = {};
+            const firebaseFeaturedMap: Record<string, boolean> = {};
+            
             firebaseCategories.forEach(fbCategory => {
-              if (fbCategory.id && (fbCategory.imageUrl || fbCategory.image)) {
-                firebaseImageMap[fbCategory.id] = fbCategory.imageUrl || fbCategory.image || '';
+              if (fbCategory.id) {
+                // Extract image URLs
+                if (fbCategory.imageUrl || fbCategory.image) {
+                  firebaseImageMap[fbCategory.id] = fbCategory.imageUrl || fbCategory.image || '';
+                }
+                
+                // Extract featured status
+                if (fbCategory.featured !== undefined) {
+                  firebaseFeaturedMap[fbCategory.id] = fbCategory.featured;
+                  console.log(`Firebase category ${fbCategory.id} featured status:`, fbCategory.featured);
+                }
               }
             });
             
-            // Update only the imageUrl in our hardcoded categories
+            // Update our hardcoded categories with Firebase data
             baseCategories = baseCategories.map(category => {
-              if (category.id && firebaseImageMap[category.id]) {
-                return {
-                  ...category,
-                  imageUrl: firebaseImageMap[category.id],
-                  image: firebaseImageMap[category.id] // Update both for consistency
-                };
+              if (category.id) {
+                const updates: Partial<Category> = {};
+                
+                // Update image if available
+                if (firebaseImageMap[category.id]) {
+                  updates.imageUrl = firebaseImageMap[category.id];
+                  updates.image = firebaseImageMap[category.id];
+                }
+                
+                // Update featured status if available
+                if (firebaseFeaturedMap[category.id] !== undefined) {
+                  updates.featured = firebaseFeaturedMap[category.id];
+                  console.log(`Updating category ${category.id} featured status from Firebase:`, updates.featured);
+                }
+                
+                return { ...category, ...updates };
               }
               return category;
             });
@@ -136,7 +157,7 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           // Continue with hardcoded categories
         }
         
-        // Try to load cached category images from localStorage
+        // Try to load cached category data from localStorage
         let cachedCategories = [...baseCategories];
         try {
           if (typeof window !== 'undefined') {
@@ -148,6 +169,9 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               if (cachedCategoryData) {
                 try {
                   const cachedCategory = JSON.parse(cachedCategoryData);
+                  const updates: Partial<Category> = {};
+                  
+                  // Handle image caching
                   if (cachedCategory.image) {
                     // For Cloudinary URLs, don't add timestamp parameters
                     let cachedImageUrl = cachedCategory.image;
@@ -161,14 +185,23 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                     }
                     
                     console.log(`Applying cached image for category ${category.id}: ${cachedImageUrl}`);
-                    
-                    // Update the category in our array
+                    updates.image = cachedCategory.image;
+                    updates.imageUrl = cachedImageUrl;
+                  }
+                  
+                  // Handle featured status
+                  if (cachedCategory.featured !== undefined) {
+                    console.log(`Applying cached featured status for category ${category.id}: ${cachedCategory.featured}`);
+                    updates.featured = cachedCategory.featured;
+                  }
+                  
+                  // Update the category in our array if we have updates
+                  if (Object.keys(updates).length > 0) {
                     const index = cachedCategories.findIndex(c => c.id === category.id);
                     if (index !== -1) {
                       cachedCategories[index] = {
                         ...cachedCategories[index],
-                        image: cachedCategory.image,
-                        imageUrl: cachedImageUrl
+                        ...updates
                       };
                     }
                   }
@@ -182,12 +215,14 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const categoryCache = JSON.parse(localStorage.getItem('categoryCache') || '{}');
             console.log('Found category cache:', categoryCache);
             
-            // Apply cached images to categories that weren't already updated
+            // Apply cached data to categories that weren't already updated
             cachedCategories = cachedCategories.map(category => {
               const cached = categoryCache[category.id];
-              if (cached && cached.image) {
-                // Only apply if we don't already have a cached image from individual storage
-                if (category.imageUrl === category.image) {
+              if (cached) {
+                const updates: Partial<Category> = {};
+                
+                // Handle image caching
+                if (cached.image && category.imageUrl === category.image) {
                   // For Cloudinary URLs, don't add timestamp parameters
                   let cachedImageUrl = cached.image;
                   
@@ -200,16 +235,27 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                   }
                   
                   console.log(`Applying legacy cached image for category ${category.id}: ${cachedImageUrl}`);
+                  updates.image = cached.image;
+                  updates.imageUrl = cachedImageUrl;
+                }
+                
+                // Handle featured status
+                if (cached.featured !== undefined) {
+                  console.log(`Applying legacy cached featured status for category ${category.id}: ${cached.featured}`);
+                  updates.featured = cached.featured;
+                }
+                
+                // Apply updates if we have any
+                if (Object.keys(updates).length > 0) {
                   return {
                     ...category,
-                    image: cached.image,
-                    imageUrl: cachedImageUrl
+                    ...updates
                   };
                 }
               }
               return category;
             });
-            console.log('Categories with cached images:', cachedCategories);
+            console.log('Categories with cached data:', cachedCategories);
           }
         } catch (cacheError) {
           console.error('Error loading from localStorage:', cacheError);
@@ -321,6 +367,45 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
         return category;
       }));
+
+      // Save to localStorage for persistence
+      try {
+        if (typeof window !== 'undefined') {
+          // Update individual category cache
+          const storageKey = `category_${categoryId}`;
+          const cachedCategory = JSON.parse(localStorage.getItem(storageKey) || '{}');
+          const updatedCache = {
+            ...cachedCategory,
+            id: categoryId,
+            featured: featured,
+            updatedAt: new Date().toISOString()
+          };
+          localStorage.setItem(storageKey, JSON.stringify(updatedCache));
+          console.log(`Updated individual category cache for ${categoryId} with featured status:`, featured);
+          
+          // Also update the global categoryCache
+          const globalCache = JSON.parse(localStorage.getItem('categoryCache') || '{}');
+          globalCache[categoryId] = {
+            ...globalCache[categoryId],
+            featured: featured,
+            updatedAt: new Date().toISOString()
+          };
+          localStorage.setItem('categoryCache', JSON.stringify(globalCache));
+          console.log('Updated global category cache with featured status:', featured);
+        }
+      } catch (e) {
+        console.warn('Failed to update localStorage cache:', e);
+      }
+      
+      // Update featured status in Firebase
+      try {
+        const { updateCategoryFeaturedStatus } = await import('@/lib/firebase-db');
+        await updateCategoryFeaturedStatus(categoryId, featured, updatedBy);
+        console.log(`Updated category featured status in Firestore: ${featured}`);
+      } catch (dbError) {
+        console.error('Error updating category featured status in Firestore:', dbError);
+        // Continue with local state update even if Firestore update fails
+      }
 
       // Notify UI components that category data has changed
       window.dispatchEvent(new CustomEvent('categoryUpdated', {
