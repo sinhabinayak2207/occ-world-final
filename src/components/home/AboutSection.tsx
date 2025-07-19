@@ -61,19 +61,19 @@ const AboutSection = () => {
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <p className="text-gray-500 text-sm">Global Clients</p>
-                <h4 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-teal-400 bg-clip-text text-transparent">500+</h4>
+                <h4 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-teal-400 bg-clip-text text-transparent">10+</h4>
               </div>
               <div>
                 <p className="text-gray-500 text-sm">Countries Served</p>
-                <h4 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-teal-400 bg-clip-text text-transparent">40+</h4>
+                <h4 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-teal-400 bg-clip-text text-transparent">20+</h4>
               </div>
               <div>
                 <p className="text-gray-500 text-sm">Products</p>
-                <h4 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-teal-400 bg-clip-text text-transparent">100+</h4>
+                <h4 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-teal-400 bg-clip-text text-transparent">20+</h4>
               </div>
               <div>
                 <p className="text-gray-500 text-sm">Years Experience</p>
-                <h4 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-teal-400 bg-clip-text text-transparent">10+</h4>
+                <h4 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-teal-400 bg-clip-text text-transparent">4+</h4>
               </div>
             </div>
           </div>
