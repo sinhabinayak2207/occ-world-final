@@ -638,6 +638,64 @@ export const updateProduct = async (product: Product): Promise<void> => {
   }
 };
 
+/**
+ * Updates a category's featured status
+ * @param categoryId The ID of the category to update
+ * @param featured Whether the category should be featured
+ * @param updatedBy The email of the user who updated the category
+ */
+export const updateCategoryFeaturedStatus = async (categoryId: string, featured: boolean, updatedBy: string = 'system'): Promise<void> => {
+  try {
+    console.log(`Firebase DB: Updating category ${categoryId} featured status to: ${featured ? 'featured' : 'not featured'}`);
+    
+    if (!categoryId) {
+      throw new Error('Category ID is required');
+    }
+    
+    // Ensure we have a fresh Firestore connection
+    const db = getFirestore();
+    console.log('Firebase DB: Ensuring fresh Firestore connection');
+    
+    const categoryRef = doc(db, 'categories', categoryId);
+    console.log('Firebase DB: Category reference created');
+    
+    // Update only the featured status and metadata
+    const updateData = {
+      featured,
+      updatedAt: Timestamp.now(),
+      updatedBy
+    };
+    
+    console.log('Firebase DB: Update data prepared:', updateData);
+    
+    // Use setDoc with merge option to ensure the update goes through even if there are conflicts
+    await setDoc(categoryRef, updateData, { merge: true });
+    console.log('Firebase DB: Category featured status successfully updated in Firestore');
+    
+    // Double-check that the update was successful
+    const updatedSnap = await getDoc(categoryRef);
+    const updatedData = updatedSnap.data();
+    
+    if (updatedData && updatedData.featured === featured) {
+      console.log('Firebase DB: Verified that featured status was updated successfully');
+    } else {
+      console.error('Firebase DB: Featured status verification failed', {
+        expected: featured,
+        actual: updatedData?.featured
+      });
+      throw new Error('Failed to verify featured status update in Firestore');
+    }
+  } catch (error) {
+    console.error('Firebase DB: Error updating category featured status:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+      throw new Error(`Failed to update category featured status: ${error.message}`);
+    } else {
+      throw new Error('Failed to update category featured status: Unknown error');
+    }
+  }
+};
+
 export { db };
 
 /**
