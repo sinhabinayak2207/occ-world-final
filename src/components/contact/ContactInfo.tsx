@@ -12,7 +12,7 @@ const ContactInfo = () => {
         </svg>
       ),
       title: 'Our Locations',
-      content: 'OCC WORLD TRADE \n204, Meridian House, Sector 8,Gandhidham Kutch'
+      content: 'OCC WORLD TRADE \n204, Meridian House, Sector 8,Gandhidham Kutch\n Pincode: 370201'
     },
     {
       icon: (
