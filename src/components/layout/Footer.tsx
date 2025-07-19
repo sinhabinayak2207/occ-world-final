@@ -154,7 +154,8 @@ const Footer = () => {
                 <span className="text-gray-300">
                 OCC WORLD TRADE<br />
                 204, Meridian House, sector 8,<br />
-                  Gandhidham Kutch
+                  Gandhidham Kutch, <br />
+                   Pincode: 370201
                 </span>
               </div>
               <div className="flex items-center mb-3">
